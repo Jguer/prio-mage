@@ -8,18 +8,18 @@ Based on [Konstantin Valeev's (Jetbrains) presentation, 2024](https://www.youtub
 
 ## What This Tool Does
 
-- 🔍 **Reads Your GitHub Projects**: Gets your issues and pull requests with their custom information
-- 🎯 **Smart Filtering**: Only looks at items that have impact scores, and effort levels set
-- 🧮 **Smart Priority Calculator**: Uses a formula that considers:
+- **Reads Your GitHub Projects**: Gets your issues and pull requests with their custom information
+- **Smart Filtering**: Only looks at items that have impact scores, and effort levels set
+- **Smart Priority Calculator**: Uses a formula that considers:
   - **Goal Importance**: How important the issue is based on its labels (like Security, Customer needs, etc.)
   - **Impact Score**: The impact number you set (1-100 scale)
   - **Effort Level**: How much work it takes (prevents penalizing big important projects)
   - **How Soon It's Due**: Things due soon get higher priority
   - **Critical Issues**: Security and critical issues always get top priority
-- 🎚️ **Priority Scores**: Gives each issue a number from 0-200 (lower numbers = higher priority)
-- 🏷️ **Updates Your Project**: Automatically puts the calculated priority scores back into your GitHub Project
-- 📊 **Shows You How It Works**: Explains exactly how each score was calculated
-- 🚀 **Easy to Use**: Simple command-line interface
+- **Priority Scores**: Gives each issue a number from 0-200 (lower numbers = higher priority)
+- **Updates Your Project**: Automatically puts the calculated priority scores back into your GitHub Project
+- **Shows You How It Works**: Explains exactly how each score was calculated
+- **Easy to Use**: Simple command-line interface
 
 ## How the Priority Formula Works
 
