@@ -55,5 +55,5 @@ test_*
 *_test.py
 tests/
 
-# Poetry cache
-poetry.lock.backup 
+# UV cache  
+.uv-cache 
