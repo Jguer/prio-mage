@@ -1,0 +1,22 @@
+version: '3.8'
+
+services:
+  prio-mage:
+    build: .
+    container_name: prio-mage
+    environment:
+      - GITHUB_TOKEN=${GITHUB_TOKEN}
+      - GITHUB_ORG=${GITHUB_ORG}
+      - GITHUB_PROJECT_NUMBER=${GITHUB_PROJECT_NUMBER}
+    env_file:
+      - .env
+    # Override the default CMD to keep container running for interactive use
+    # Remove this line if you want to run specific commands
+    stdin_open: true
+    tty: true
+    # Example: run a specific command instead
+    # command: ["list-issues", "--show-fields"]
+    
+    # For development: mount the source code
+    # volumes:
+    #   - ./prio_mage:/app/prio_mage:ro 

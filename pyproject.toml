@@ -1,0 +1,20 @@
+[tool.poetry]
+name = "prio-mage"
+version = "0.1.0"
+description = "GitHub GraphQL tool for querying issues and updating custom fields"
+authors = ["User <user@example.com>"]
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "^3.10"
+requests = "^2.32.4"
+python-dotenv = "^1.1.1"
+click = "^8.2.1"
+
+[tool.poetry.scripts]
+prio-mage = "prio_mage.__main__:cli"
+
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
