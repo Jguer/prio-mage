@@ -50,10 +50,6 @@ Dockerfile*
 docker-compose*
 .dockerignore
 
-# Documentation
-README.md
-*.md
-
 # Test files
 test_*
 *_test.py

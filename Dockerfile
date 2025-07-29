@@ -15,7 +15,7 @@ RUN groupadd -r prio && useradd -r -g prio prio
 WORKDIR /app
 
 # Copy project files
-COPY pyproject.toml ./
+COPY pyproject.toml README.md ./
 
 # Install dependencies using uv
 RUN uv pip install --system --no-cache-dir -r pyproject.toml
