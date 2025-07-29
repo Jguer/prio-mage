@@ -3,8 +3,10 @@ name: Build and Push Docker Image
 on:
   push:
     branches: [ "**" ]  # Trigger on push to any branch
+    paths-ignore: [ "**/*.md" ]
   pull_request:
     branches: [ "main", "master" ]  # Also build on PRs to main/master
+    paths-ignore: [ "**/*.md" ]
 
 env:
   REGISTRY: ghcr.io
