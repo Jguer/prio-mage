@@ -63,7 +63,7 @@ class PriorityCalculator:
         }
         
         # Fixed baseline working time for deadline calculations (not effort-dependent)
-        self.baseline_working_time = 120.0  # Standard 60-day baseline
+        self.baseline_working_time = 60
         
         # Severity toggle for critical issues
         self.critical_labels = {
