@@ -1,5 +1,5 @@
 # Single stage build for prio_mage
-FROM python:3-alpine AS production
+FROM python:3-slim AS production
 
 # Install system dependencies and uv
 RUN apt-get update && apt-get install -y \
