@@ -1,0 +1,35 @@
+name: Test Python Code
+
+on:
+  push:
+    branches: [ "**" ]
+    paths: [ "**/*.py" ]
+  pull_request:
+    branches: [ "main", "master" ]
+    paths: [ "**/*.py" ]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    
+    container:
+      image: ghcr.io/jguer/prio-mage:latest
+      credentials:
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+    
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+    
+    - name: Run Python tests
+      run: python test_calculator.py
+      
+    - name: Test CLI commands
+      run: |
+        # Test that CLI commands can be imported and show help
+        python -m prio_mage --help
+        python -m prio_mage list-issues --help
+        python -m prio_mage update-priorities --help
+        python -m prio_mage show-project-info --help
+        python -m prio_mage explain-priority --help

@@ -350,11 +350,16 @@ class PriorityCalculator:
                 'impact': impact,
                 'effort_days': effort_days,
                 'goal_impact_product': goal_impact_product,
+                'goal_weight_times_impact': goal_impact_product,  # Alias for CLI display
+                'effort_threshold': 0.05 * goal_impact_product + 5,  # For CLI display
+                'effort_logistic_denominator': s_denominator,  # Alias for CLI display
+                'base_score_S': s_score,  # Alias for CLI display
                 's_exponent': s_exponent,
                 's_denominator': s_denominator,
                 's_score': s_score,
                 'days_till_due_date': days_till_due_date,
                 'median_working_time': self.baseline_working_time if due_date else None,
+                'due_date_logistic_denominator': priority_denominator,  # Alias for CLI display
                 'priority_exponent': priority_exponent,
                 'priority_denominator': priority_denominator,
                 'final_priority_before_clamp': final_priority,
