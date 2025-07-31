@@ -4,14 +4,94 @@ GitHub GraphQL client for querying issues and updating custom fields in Projects
 
 import os
 import requests
-from typing import List, Dict, Any, Optional
+from dataclasses import dataclass
+from typing import Any
+
+
+@dataclass
+class Label:
+    """Represents a GitHub label."""
+    id: str
+    name: str
+    color: str
+    description: str
+
+
+@dataclass  
+class CustomFieldValue:
+    """Represents a custom field value in a GitHub project."""
+    type: str
+    value: Any
+    field_id: str
+
+
+@dataclass
+class ProjectItem:
+    """Represents a GitHub project item (issue or PR)."""
+    project_item_id: str
+    content_type: str
+    id: str
+    number: int
+    title: str
+    body: str
+    created_at: str
+    updated_at: str
+    author: str
+    repository: str
+    labels: list[Label]
+    assignees: list[str] | None
+    comment_count: int
+    reaction_count: int
+    custom_fields: dict[str, CustomFieldValue]
+
+
+@dataclass
+class ProjectFieldOption:
+    """Represents an option for a single-select project field."""
+    id: str
+    name: str
+    color: str
+
+
+@dataclass
+class ProjectField:
+    """Represents a project field definition."""
+    id: str
+    name: str
+    data_type: str
+    field_type: str
+    options: list[ProjectFieldOption] | None = None
+
+
+@dataclass
+class ProjectInfo:
+    """Represents project information."""
+    project_id: str
+    project_title: str
+    fields: list[ProjectField]
+
+
+@dataclass
+class RepositoryInfo:
+    """Represents repository/project information."""
+    id: str
+    name: str
+    description: str
+    url: str
+    is_private: bool
+    fields: list[ProjectField]
 
 
 class GitHubClient:
     """Client for interacting with GitHub GraphQL API for Projects V2."""
+    token: str
+    organization: str
+    project_number: int
+    base_url: str
+    headers: dict[str, str]
     
-    def __init__(self, token: Optional[str] = None, organization: Optional[str] = None, project_number: Optional[int] = None):
-        self.token = token or os.getenv('GITHUB_TOKEN')
+    def __init__(self, token: str | None = None, organization: str | None = None, project_number: int | None = None):
+        self.token = token or os.getenv('GITHUB_TOKEN') or ''
         self.organization = organization or os.getenv('GITHUB_ORG', 'tinor-labs')
         self.project_number = project_number or int(os.getenv('GITHUB_PROJECT_NUMBER', '1'))
         self.base_url = 'https://api.github.com/graphql'
@@ -29,7 +109,7 @@ class GitHubClient:
         self.organization = organization
         self.project_number = project_number
     
-    def _execute_query(self, query: str, variables: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+    def _execute_query(self, query: str, variables: dict[str, Any] | None = None) -> dict[str, Any]:
         """Execute a GraphQL query."""
         payload = {
             'query': query,
@@ -52,7 +132,7 @@ class GitHubClient:
         
         return result.get('data', {})
     
-    def get_issues_with_labels(self) -> List[Dict[str, Any]]:
+    def get_issues_with_labels(self) -> list[ProjectItem]:
         """Get all project items (issues/PRs) with their custom field values, filtered for items with due, impact, and effort fields."""
         query = """
         query GetProjectItems($org: String!, $projectNumber: Int!, $cursor: String) {
@@ -190,7 +270,7 @@ class GitHubClient:
         }
         """
         
-        all_items = []
+        all_items: list[ProjectItem] = []
         cursor = None
         
         while True:
@@ -215,32 +295,26 @@ class GitHubClient:
                 if content.get('__typename') not in ['Issue', 'PullRequest']:
                     continue
                 
-                # Flatten the structure for easier processing
-                processed_item = {
-                    'project_item_id': item['id'],
-                    'content_type': content['__typename'],
-                    'id': content['id'],
-                    'number': content['number'],
-                    'title': content['title'],
-                    'body': content.get('body', ''),
-                    'createdAt': content['createdAt'],
-                    'updatedAt': content['updatedAt'],
-                    'author': content.get('author', {}).get('login', ''),
-                    'repository': f"{content['repository']['owner']['login']}/{content['repository']['name']}",
-                    'labels': [],
-                    'assignees': [],
-                    'comment_count': content.get('comments', {}).get('totalCount', 0),
-                    'reaction_count': content.get('reactions', {}).get('totalCount', 0),
-                    'custom_fields': {}
-                }
-                
                 # Process labels
+                labels = []
                 if content.get('labels', {}).get('nodes'):
-                    processed_item['labels'] = content['labels']['nodes']
+                    labels = [
+                        Label(
+                            id=label['id'],
+                            name=label['name'],
+                            color=label['color'],
+                            description=label.get('description', '')
+                        )
+                        for label in content['labels']['nodes']
+                    ]
                 
                 # Process assignees
+                assignees = []
                 if content.get('assignees', {}).get('nodes'):
-                    processed_item['assignees'] = [assignee['login'] for assignee in content['assignees']['nodes']]
+                    assignees = [assignee['login'] for assignee in content['assignees']['nodes']]
+                
+                # Initialize custom fields dict
+                custom_fields: dict[str, CustomFieldValue] = {}
                 
                 # Process custom fields
                 for field_value in item.get('fieldValues', {}).get('nodes', []):
@@ -248,33 +322,33 @@ class GitHubClient:
                     field_name = field_info.get('name', '')
                     
                     if field_value.get('__typename') == 'ProjectV2ItemFieldSingleSelectValue':
-                        processed_item['custom_fields'][field_name] = {
-                            'type': 'single_select',
-                            'value': field_value.get('name', ''),
-                            'field_id': field_info.get('id', '')
-                        }
+                        custom_fields[field_name] = CustomFieldValue(
+                            type='single_select',
+                            value=field_value.get('name', ''),
+                            field_id=field_info.get('id', '')
+                        )
                     elif field_value.get('__typename') == 'ProjectV2ItemFieldTextValue':
-                        processed_item['custom_fields'][field_name] = {
-                            'type': 'text',
-                            'value': field_value.get('text', ''),
-                            'field_id': field_info.get('id', '')
-                        }
+                        custom_fields[field_name] = CustomFieldValue(
+                            type='text',
+                            value=field_value.get('text', ''),
+                            field_id=field_info.get('id', '')
+                        )
                     elif field_value.get('__typename') == 'ProjectV2ItemFieldNumberValue':
-                        processed_item['custom_fields'][field_name] = {
-                            'type': 'number',
-                            'value': field_value.get('number', 0),
-                            'field_id': field_info.get('id', '')
-                        }
+                        custom_fields[field_name] = CustomFieldValue(
+                            type='number',
+                            value=field_value.get('number', 0),
+                            field_id=field_info.get('id', '')
+                        )
                     elif field_value.get('__typename') == 'ProjectV2ItemFieldDateValue':
-                        processed_item['custom_fields'][field_name] = {
-                            'type': 'date',
-                            'value': field_value.get('date', ''),
-                            'field_id': field_info.get('id', '')
-                        }
+                        custom_fields[field_name] = CustomFieldValue(
+                            type='date',
+                            value=field_value.get('date', ''),
+                            field_id=field_info.get('id', '')
+                        )
                 
                 # Filter: Only include items that have impact and effort fields (due date is optional)
                 required_fields = ['impact', 'effort']
-                custom_field_names = [name.lower() for name in processed_item['custom_fields'].keys()]
+                custom_field_names: list[str] = [name.lower() for name in custom_fields.keys()]
                 
                 has_all_required = all(
                     field.lower() in custom_field_names 
@@ -286,7 +360,7 @@ class GitHubClient:
                     impact_field = None
                     effort_field = None
                     
-                    for field_name, field_data in processed_item['custom_fields'].items():
+                    for field_name, field_data in custom_fields.items():
                         field_name_lower = field_name.lower()
                         if field_name_lower == 'impact':
                             impact_field = field_data
@@ -296,13 +370,31 @@ class GitHubClient:
                     # Verify field types and non-empty values
                     valid_item = True
                     
-                    if not impact_field or impact_field.get('type') != 'number' or impact_field.get('value') is None:
+                    if not impact_field or impact_field.type != 'number' or impact_field.value is None:
                         valid_item = False
-                    if not effort_field or effort_field.get('type') != 'single_select' or not effort_field.get('value'):
+                    if not effort_field or effort_field.type != 'single_select' or not effort_field.value:
                         valid_item = False
                     
                     if valid_item:
-                        all_items.append(processed_item)
+                        # Create ProjectItem dataclass instance
+                        project_item = ProjectItem(
+                            project_item_id=item['id'],
+                            content_type=content['__typename'],
+                            id=content['id'],
+                            number=content['number'],
+                            title=content['title'],
+                            body=content.get('body', ''),
+                            created_at=content['createdAt'],
+                            updated_at=content['updatedAt'],
+                            author=content.get('author', {}).get('login', ''),
+                            repository=f"{content['repository']['owner']['login']}/{content['repository']['name']}",
+                            labels=labels,
+                            assignees=assignees,
+                            comment_count=content.get('comments', {}).get('totalCount', 0),
+                            reaction_count=content.get('reactions', {}).get('totalCount', 0),
+                            custom_fields=custom_fields
+                        )
+                        all_items.append(project_item)
             
             page_info = items.get('pageInfo', {})
             if not page_info.get('hasNextPage'):
@@ -312,7 +404,7 @@ class GitHubClient:
         
         return all_items
     
-    def get_project_fields(self) -> Dict[str, Any]:
+    def get_project_fields(self) -> ProjectInfo:
         """Get project field definitions including options for single select fields."""
         query = """
         query GetProjectFields($org: String!, $projectNumber: Int!) {
@@ -354,11 +446,37 @@ class GitHubClient:
         organization = data.get('organization', {})
         project = organization.get('projectV2', {})
         
-        return {
-            'project_id': project.get('id', ''),
-            'project_title': project.get('title', ''),
-            'fields': project.get('fields', {}).get('nodes', [])
-        }
+        # Process fields into ProjectField objects
+        fields: list[ProjectField] = []
+        for field_data in project.get('fields', {}).get('nodes', []):
+            field_type = field_data.get('__typename', '')
+            options = None
+            
+            # Process options for single select fields
+            if field_type == 'ProjectV2SingleSelectField' and field_data.get('options'):
+                options = [
+                    ProjectFieldOption(
+                        id=option['id'],
+                        name=option['name'],
+                        color=option['color']
+                    )
+                    for option in field_data['options']
+                ]
+            
+            project_field = ProjectField(
+                id=field_data.get('id', ''),
+                name=field_data.get('name', ''),
+                data_type=field_data.get('dataType', ''),
+                field_type=field_type,
+                options=options
+            )
+            fields.append(project_field)
+        
+        return ProjectInfo(
+            project_id=project.get('id', ''),
+            project_title=project.get('title', ''),
+            fields=fields
+        )
     
     def update_item_field_value(self, project_id: str, item_id: str, field_id: str, value: Any) -> bool:
         """Update a custom field value for a project item."""
@@ -385,7 +503,7 @@ class GitHubClient:
         }
         
         try:
-            self._execute_query(mutation, variables)
+            _ = self._execute_query(mutation, variables)
             return True
         except Exception as e:
             print(f"Error updating field: {e}")
@@ -399,8 +517,8 @@ class GitHubClient:
         priority_field = None
         
         # Find the Priority field (could be number or text field)
-        for field in project_info['fields']:
-            field_name = field.get('name', '').lower()
+        for field in project_info.fields:
+            field_name = field.name.lower()
             if field_name in ['priority', 'prio']:
                 priority_field = field
                 break
@@ -409,19 +527,19 @@ class GitHubClient:
             print("Priority field not found in project")
             return False
         
-        field_type = priority_field.get('__typename', '')
-        field_id = priority_field['id']
+        field_type = priority_field.field_type
+        field_id = priority_field.id
         
         # Prepare the value based on field type
-        if field_type == 'ProjectV2Field' and priority_field.get('dataType') == 'NUMBER':
+        if field_type == 'ProjectV2Field' and priority_field.data_type == 'NUMBER':
             # Number field - use the score directly
             value = {'number': priority_score}
-        elif field_type == 'ProjectV2Field' and priority_field.get('dataType') == 'TEXT':
+        elif field_type == 'ProjectV2Field' and priority_field.data_type == 'TEXT':
             # Text field - use the score as text
             value = {'text': str(round(priority_score, 2))}
         elif field_type == 'ProjectV2SingleSelectField':
             # Single select field - map score to options
-            target_option = self._map_score_to_option(priority_score, priority_field.get('options', []))
+            target_option = self._map_score_to_option(priority_score, priority_field.options or [])
             if not target_option:
                 print(f"Could not map priority score {priority_score} to available options")
                 return False
@@ -432,13 +550,13 @@ class GitHubClient:
         
         # Update the field value
         return self.update_item_field_value(
-            project_info['project_id'],
+            project_info.project_id,
             item_id,
             field_id,
             value
         )
     
-    def _map_score_to_option(self, priority_score: float, options: List[Dict[str, Any]]) -> Optional[str]:
+    def _map_score_to_option(self, priority_score: float, options: list[ProjectFieldOption]) -> str | None:
         """Map priority score to single select option ID."""
         # Define score ranges for different priority levels
         if priority_score >= 150:
@@ -454,30 +572,26 @@ class GitHubClient:
         
         # Find matching option
         for option in options:
-            option_name = option.get('name', '').lower()
+            option_name = option.name.lower()
             for target_name in target_names:
                 if target_name in option_name:
-                    option_id = option.get('id')
-                    if option_id is not None:
-                        return str(option_id)
+                    return str(option.id)
         
         # Fallback to first option if no match found
         if options:
-            option_id = options[0].get('id')
-            if option_id is not None:
-                return str(option_id)
+            return str(options[0].id)
         
         return None
   
-    def get_repository_info(self) -> Dict[str, Any]:
+    def get_repository_info(self) -> RepositoryInfo:
         """Get basic project information."""
         project_info = self.get_project_fields()
         
-        return {
-            'id': project_info['project_id'],
-            'name': project_info['project_title'],
-            'description': f"GitHub Project V2 (Organization: {self.organization}, Number: {self.project_number})",
-            'url': f"https://github.com/orgs/{self.organization}/projects/{self.project_number}",
-            'isPrivate': False,  # Projects visibility depends on organization settings
-            'fields': project_info['fields']
-        } 
+        return RepositoryInfo(
+            id=project_info.project_id,
+            name=project_info.project_title,
+            description=f"GitHub Project V2 (Organization: {self.organization}, Number: {self.project_number})",
+            url=f"https://github.com/orgs/{self.organization}/projects/{self.project_number}",
+            is_private=False,  # Projects visibility depends on organization settings
+            fields=project_info.fields
+        ) 

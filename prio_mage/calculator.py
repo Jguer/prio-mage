@@ -3,8 +3,9 @@ Priority calculation logic for GitHub issues in Projects V2 using production for
 """
 
 import math
-from typing import Any, Dict, List
+from typing import Any
 from datetime import datetime, timezone
+from .github_client import ProjectItem, Label, CustomFieldValue
 
 
 class PriorityCalculator:
@@ -71,7 +72,7 @@ class PriorityCalculator:
             'urgent', 'P0', 'P1', 'P2'
         }
     
-    def calculate_priority(self, issue: Dict[str, Any]) -> float:
+    def calculate_priority(self, issue: ProjectItem) -> float:
         """Calculate priority score using the production formula."""
         
         # Check for critical severity override
@@ -79,10 +80,10 @@ class PriorityCalculator:
             return 0.0  # Minimum score = maximum priority for critical issues
         
         # Extract custom fields
-        custom_fields = issue.get('custom_fields', {})
+        custom_fields = issue.custom_fields
         
         # Get Goal Weight from labels (fallback to impact if no goal found)
-        base_goal_weight = self._extract_goal_weight(issue.get('labels', []))
+        base_goal_weight = self.extract_goal_weight(issue.labels)
         
         # Apply status-based multiplier to goal weight
         status_multiplier = self._get_status_multiplier(custom_fields)
@@ -150,32 +151,31 @@ class PriorityCalculator:
         # Clamp to the allowed range [0, 200]
         return max(0.0, min(200.0, final_priority))
     
-    def _is_critical_issue(self, issue: Dict[str, Any]) -> bool:
+    def _is_critical_issue(self, issue: ProjectItem) -> bool:
         """Check if issue has critical severity labels or custom field."""
         # Check labels first
-        labels = issue.get('labels', [])
-        for label in labels:
-            label_name = label.get('name', '').lower()
+        for label in issue.labels:
+            label_name = label.name.lower()
             if any(critical_label in label_name for critical_label in self.critical_labels):
                 return True
         
         # Check custom fields for critical field
-        custom_fields = issue.get('custom_fields', {})
+        custom_fields = issue.custom_fields
         critical_field = custom_fields.get('critical') or custom_fields.get('Critical')
-        if critical_field and critical_field.get('value'):
-            critical_value = critical_field.get('value', '').lower().strip()
+        if critical_field and critical_field.value:
+            critical_value = str(critical_field.value).lower().strip()
             # Check if the value indicates critical severity
             if critical_value == 'critical':
                 return True
         
         return False
     
-    def _extract_goal_weight(self, labels: List[Dict[str, Any]]) -> float:
+    def extract_goal_weight(self, labels: list[Label]) -> float:
         """Extract goal weight from issue labels."""
         goal_weight = 0.5  # Default
         
         for label in labels:
-            label_name = label.get('name', '').lower()
+            label_name = label.name.lower()
             
             # Check for goal-related labels
             for goal_key, weight in self.goal_weights.items():
@@ -184,13 +184,13 @@ class PriorityCalculator:
         
         return goal_weight
     
-    def _get_status_multiplier(self, custom_fields: Dict[str, Any]) -> float:
+    def _get_status_multiplier(self, custom_fields: dict[str, CustomFieldValue]) -> float:
         """Get status-based multiplier from custom fields."""
         status_field = custom_fields.get('Status') or custom_fields.get('status')
-        if not status_field or not status_field.get('value'):
+        if not status_field or not status_field.value:
             return 1.0  # Default multiplier if no status
         
-        status_value = status_field.get('value', '').lower().strip()
+        status_value = str(status_field.value).lower().strip()
         
         # Check for exact matches first
         if status_value in self.status_multipliers:
@@ -203,22 +203,21 @@ class PriorityCalculator:
         
         return 1.0  # Default multiplier for unknown status values
     
-    def _get_impact_value(self, custom_fields: Dict[str, Any]) -> float:
+    def _get_impact_value(self, custom_fields: dict[str, CustomFieldValue]) -> float:
         """Get impact value from custom fields."""
         impact_field = custom_fields.get('impact') or custom_fields.get('Impact')
-        if not impact_field or impact_field.get('value') is None:
+        if not impact_field or impact_field.value is None:
             return 5.0  # Default medium impact
         
-        impact_value = impact_field.get('value', 5.0)
-        return float(impact_value)
+        return float(impact_field.value)
     
-    def _get_effort_days(self, custom_fields: Dict[str, Any]) -> float:
+    def _get_effort_days(self, custom_fields: dict[str, CustomFieldValue]) -> float:
         """Get effort in days from custom fields."""
         effort_field = custom_fields.get('effort') or custom_fields.get('Effort')
-        if not effort_field or not effort_field.get('value'):
+        if not effort_field or not effort_field.value:
             return 8.0  # Default medium effort
         
-        effort_value = effort_field.get('value', '').lower().strip()
+        effort_value = str(effort_field.value).lower().strip()
         
         # Check for exact matches first
         if effort_value in self.effort_days:
@@ -231,14 +230,14 @@ class PriorityCalculator:
         
         return 8.0  # Default for unknown effort values
     
-    def _get_due_date(self, custom_fields: Dict[str, Any]) -> datetime | None:
+    def _get_due_date(self, custom_fields: dict[str, CustomFieldValue]) -> datetime | None:
         """Get due date from custom fields."""
         due_field = custom_fields.get('due') or custom_fields.get('Due')
-        if not due_field or not due_field.get('value'):
+        if not due_field or not due_field.value:
             return None
         
         try:
-            due_date_str = due_field.get('value')
+            due_date_str = str(due_field.value)
             return datetime.fromisoformat(due_date_str.replace('Z', '+00:00'))
         except (ValueError, TypeError):
             return None
@@ -282,9 +281,9 @@ class PriorityCalculator:
         else:
             return "Icebox"
     
-    def get_priority_explanation(self, issue: Dict[str, Any]) -> Dict[str, Any]:
+    def get_priority_explanation(self, issue: ProjectItem) -> dict[str, Any]:
         """Get detailed explanation of how priority was calculated."""
-        custom_fields = issue.get('custom_fields', {})
+        custom_fields = issue.custom_fields
 
         # Check for critical override
         is_critical = self._is_critical_issue(issue)
@@ -299,7 +298,7 @@ class PriorityCalculator:
             }
 
         # Extract components
-        base_goal_weight = self._extract_goal_weight(issue.get('labels', []))
+        base_goal_weight = self.extract_goal_weight(issue.labels)
         status_multiplier = self._get_status_multiplier(custom_fields)
         goal_weight = base_goal_weight * status_multiplier
         impact = self._get_impact_value(custom_fields)

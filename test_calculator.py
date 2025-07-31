@@ -3,9 +3,9 @@ Test cases for the PriorityCalculator class.
 """
 
 import unittest
-import math
 from datetime import datetime, timezone, timedelta
 from prio_mage.calculator import PriorityCalculator
+from prio_mage.github_client import ProjectItem, Label, CustomFieldValue
 
 
 class TestPriorityCalculator(unittest.TestCase):
@@ -15,16 +15,66 @@ class TestPriorityCalculator(unittest.TestCase):
         """Set up test fixture with fresh calculator instance."""
         self.calculator = PriorityCalculator()
     
+    def create_test_issue(self, labels=None, custom_fields=None):
+        """Helper method to create a test ProjectItem with given labels and custom fields."""
+        if labels is None:
+            labels = []
+        if custom_fields is None:
+            custom_fields = {}
+        
+        # Convert label dictionaries to Label objects
+        label_objects = []
+        for label_data in labels:
+            if isinstance(label_data, dict):
+                label_objects.append(Label(
+                    id=label_data.get('id', 'test_id'),
+                    name=label_data['name'],
+                    color=label_data.get('color', 'blue'),
+                    description=label_data.get('description', '')
+                ))
+            else:
+                label_objects.append(label_data)
+        
+        # Convert custom field dictionaries to CustomFieldValue objects
+        custom_field_objects = {}
+        for field_name, field_data in custom_fields.items():
+            if isinstance(field_data, dict):
+                custom_field_objects[field_name] = CustomFieldValue(
+                    type=field_data.get('type', 'text'),
+                    value=field_data['value'],
+                    field_id=field_data.get('field_id', 'test_field_id')
+                )
+            else:
+                custom_field_objects[field_name] = field_data
+        
+        return ProjectItem(
+            project_item_id='test_project_item_id',
+            content_type='Issue',
+            id='test_id',
+            number=123,
+            title='Test Issue',
+            body='Test body',
+            created_at='2023-01-01T00:00:00Z',
+            updated_at='2023-01-01T00:00:00Z',
+            author='test_author',
+            repository='test/repo',
+            labels=label_objects,
+            assignees=[],
+            comment_count=0,
+            reaction_count=0,
+            custom_fields=custom_field_objects
+        )
+    
     def test_basic_priority_calculation(self):
         """Test basic priority calculation with default values."""
-        issue = {
-            'labels': [{'name': 'general'}],
-            'custom_fields': {
-                'impact': {'value': 5.0},
-                'effort': {'value': 'medium'},
-                'Status': {'value': 'Ready'}
+        issue = self.create_test_issue(
+            labels=[{'name': 'general'}],
+            custom_fields={
+                'impact': {'type': 'number', 'value': 5.0},
+                'effort': {'type': 'single_select', 'value': 'medium'},
+                'Status': {'type': 'single_select', 'value': 'Ready'}
             }
-        }
+        )
         
         priority = self.calculator.calculate_priority(issue)
         
@@ -36,26 +86,26 @@ class TestPriorityCalculator(unittest.TestCase):
     def test_critical_issue_override(self):
         """Test that critical issues get minimum priority score (maximum urgency)."""
         # Test with critical label
-        issue_with_label = {
-            'labels': [{'name': 'critical'}],
-            'custom_fields': {
-                'impact': {'value': 1.0},
-                'effort': {'value': 'xl'}
+        issue_with_label = self.create_test_issue(
+            labels=[{'name': 'critical'}],
+            custom_fields={
+                'impact': {'type': 'number', 'value': 1.0},
+                'effort': {'type': 'single_select', 'value': 'xl'}
             }
-        }
+        )
         
         priority = self.calculator.calculate_priority(issue_with_label)
         assert priority == 0.0
         
         # Test with critical custom field
-        issue_with_field = {
-            'labels': [],
-            'custom_fields': {
-                'Critical': {'value': 'critical'},
-                'impact': {'value': 1.0},
-                'effort': {'value': 'xl'}
+        issue_with_field = self.create_test_issue(
+            labels=[],
+            custom_fields={
+                'Critical': {'type': 'single_select', 'value': 'critical'},
+                'impact': {'type': 'number', 'value': 1.0},
+                'effort': {'type': 'single_select', 'value': 'xl'}
             }
-        }
+        )
         
         priority = self.calculator.calculate_priority(issue_with_field)
         assert priority == 0.0
