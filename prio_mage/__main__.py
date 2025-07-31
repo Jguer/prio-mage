@@ -4,7 +4,7 @@ Main entry point for the Prio Mage CLI application.
 
 import click
 from dotenv import load_dotenv
-from typing import Optional
+from typing import Any
 from .github_client import GitHubClient
 from .calculator import PriorityCalculator
 
@@ -12,7 +12,7 @@ from .calculator import PriorityCalculator
 load_dotenv()
 
 
-def get_current_priority(custom_fields: dict) -> Optional[float]:
+def get_current_priority(custom_fields: dict[str, Any]) -> float | None:
     """Extract current priority value from custom fields."""
     # Check for priority or prio fields (case insensitive)
     priority_field = None
@@ -48,7 +48,7 @@ def get_current_priority(custom_fields: dict) -> Optional[float]:
 
 @click.group()
 @click.version_option()
-def cli():
+def cli() -> None:
     """Prio Mage - GitHub GraphQL tool for managing issue priorities in Projects V2."""
     pass
 
@@ -57,7 +57,7 @@ def cli():
 @click.option('--org', help='GitHub organization')
 @click.option('--project', type=int, help='GitHub project number')
 @click.option('--dry-run', is_flag=True, help='Show what would be updated without making changes')
-def update_priorities(org, project, dry_run):
+def update_priorities(org: str | None, project: int | None, dry_run: bool) -> None:
     """Query project items and update priority fields based on calculations.
     
     Only processes items that have impact and effort custom fields set. Due date is optional.
@@ -137,7 +137,7 @@ def update_priorities(org, project, dry_run):
 @click.option('--project', type=int, help='GitHub project number')
 @click.option('--show-prs', is_flag=True, help='Also show pull requests')
 @click.option('--show-fields', is_flag=True, help='Show all custom field values')
-def list_issues(org, project, show_prs, show_fields):
+def list_issues(org: str | None, project: int | None, show_prs: bool, show_fields: bool) -> None:
     """List all project items with their current status and calculated priorities.
     
     Only shows items that have impact and effort custom fields set. Due date is optional.
@@ -227,7 +227,7 @@ def list_issues(org, project, show_prs, show_fields):
 @click.option('--org', help='GitHub organization')  
 @click.option('--project', type=int, help='GitHub project number')
 @click.option('--issue-number', type=int, multiple=True, required=True, help='Issue number(s) to analyze')
-def explain_priority(org, project, issue_number):
+def explain_priority(org: str | None, project: int | None, issue_number: tuple[int, ...]) -> None:
     """Show detailed explanation of how priority was calculated for specific issue(s) using the production formula."""
     client = GitHubClient()
     calculator = PriorityCalculator()
@@ -310,7 +310,7 @@ def explain_priority(org, project, issue_number):
 @cli.command()
 @click.option('--org', help='GitHub organization')
 @click.option('--project', type=int, help='GitHub project number')
-def show_project_info(org, project):
+def show_project_info(org: str | None, project: int | None) -> None:
     """Show detailed information about the GitHub project and its fields."""
     client = GitHubClient()
     

@@ -138,7 +138,12 @@ class TestPriorityCalculator(unittest.TestCase):
         # No due date
         no_due_issue = {**base_issue}
         no_due_priority = self.calculator.calculate_priority(no_due_issue)
-        
+            
+        # Debug: Print actual values to understand the behavior
+        print(f"Urgent (due tomorrow): {urgent_priority}")
+        print(f"Future (due in 6 months): {future_priority}")
+        print(f"No due date: {no_due_priority}")
+
         # Note: In current formula implementation, tasks due in medium future get higher priority
         # This may be counterintuitive but reflects the current mathematical behavior
         assert future_priority < urgent_priority
