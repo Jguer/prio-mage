@@ -94,13 +94,13 @@ def update_priorities(org, project, dry_run):
         # Extract goal from labels for display
         goal_weight = calculator._extract_goal_weight(issue.get('labels', []))
         
-        # Check if priority needs updating (allow small floating point differences)
+        # Check if priority needs updating (only update if delta is superior to 2)
         needs_update = True
         if current_priority is not None:
             # Round both to 2 decimal places for comparison (same as calculator output)
             current_rounded = round(current_priority, 2)
             calculated_rounded = round(priority_score, 2)
-            needs_update = abs(current_rounded - calculated_rounded) > 0.001
+            needs_update = abs(current_rounded - calculated_rounded) > 2.0
         
         if dry_run:
             current_priority_str = f"{current_priority:.2f}" if current_priority is not None else "None"
