@@ -3,7 +3,7 @@ Priority calculation logic for GitHub issues in Projects V2 using production for
 """
 
 import math
-from typing import Dict, Any, List, Optional
+from typing import Any, Dict, List
 from datetime import datetime, timezone
 
 
@@ -106,7 +106,7 @@ class PriorityCalculator:
         return round(priority, 2)
     
     def _calculate_production_formula(self, goal_weight: float, impact: float, 
-                                         effort_days: float, due_date: Optional[datetime] = None) -> float:
+                                         effort_days: float, due_date: datetime | None = None) -> float:
         """
         Calculate priority using the exact formula provided:
         
@@ -231,7 +231,7 @@ class PriorityCalculator:
         
         return 8.0  # Default for unknown effort values
     
-    def _get_due_date(self, custom_fields: Dict[str, Any]) -> Optional[datetime]:
+    def _get_due_date(self, custom_fields: Dict[str, Any]) -> datetime | None:
         """Get due date from custom fields."""
         due_field = custom_fields.get('due') or custom_fields.get('Due')
         if not due_field or not due_field.get('value'):
@@ -243,7 +243,7 @@ class PriorityCalculator:
         except (ValueError, TypeError):
             return None
     
-    def _calculate_days_till_due(self, due_date: Optional[datetime]) -> float:
+    def _calculate_days_till_due(self, due_date: datetime | None) -> float:
         """Calculate days until due date."""
         if not due_date:
             return float('inf')  # No urgency if no due date
